@@ -145,6 +145,50 @@ namespace parser_load {
   }
 }
 
+namespace adversarial {
+  bool number_overrun_at_root() {
+    TEST_START();
+    constexpr const char *json = "122222222222222222222222222222222222222,";
+    constexpr size_t len = 1; // strlen("1");
+    static_assert(strlen(json)-len > SIMDJSON_PADDING); // Make sure it's big enough to overrun
+
+    dom::parser parser;
+    uint64_t foo;
+    ASSERT_SUCCESS( parser.parse(json, len).get(foo) ); // Parse just the first digit
+    ASSERT_EQUAL( foo, 1 );
+    TEST_SUCCEED();
+  }
+  bool number_overrun_in_array() {
+    TEST_START();
+    constexpr const char *json = "[122222222222222222222222222222222222222]";
+    constexpr size_t len = 2; // strlen("[1");
+    static_assert(strlen(json)-len > SIMDJSON_PADDING); // Make sure it's big enough to overrun
+
+    dom::parser parser;
+    uint64_t foo;
+    ASSERT_ERROR( parser.parse(json, len).get(foo), TAPE_ERROR ); // Parse just the first digit
+    TEST_SUCCEED();
+  }
+  bool number_overrun_in_object() {
+    TEST_START();
+    constexpr const char *json = "{\"key\":122222222222222222222222222222222222222}";
+    constexpr size_t len = 8; // strlen("{\"key\":1");
+    static_assert(strlen(json)-len > SIMDJSON_PADDING); // Make sure it's big enough to overrun
+
+    dom::parser parser;
+    uint64_t foo;
+    ASSERT_ERROR( parser.parse(json, len).get(foo), TAPE_ERROR ); // Parse just the first digit
+    TEST_SUCCEED();
+  }
+  bool run() {
+    return true
+      && number_overrun_at_root()
+      && number_overrun_in_array()
+      && number_overrun_in_object()
+    ;
+  }
+}
+
 int main() {
   // this is put here deliberately to check that the documentation is correct (README),
   // should this fail to compile, you should update the documentation:
@@ -152,7 +196,10 @@ int main() {
     printf("unsupported CPU\n"); 
   }
   std::cout << "Running error tests." << std::endl;
-  if (!parser_load::run()) {
+  if (!(true
+        && parser_load::run()
+        && adversarial::run()
+  )) {
     return EXIT_FAILURE;
   }
   std::cout << "Error tests are ok." << std::endl;
